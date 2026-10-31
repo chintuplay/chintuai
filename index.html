@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1311">
+<title>Chintu AI</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one-screen app — header, tabs, notice strip, scrolling body, composer pinned bottom */
+:root{
+  --bg:#f3f5f4; --panel:#ffffff; --fg:#14201b; --muted:#5d6b65; --line:#d9e0dc;
+  --accent:#0f8a5f; --accent-fg:#ffffff; --warn:#a86400; --bad:#c0352b; --good:#0f8a5f; --bubble:#e7eeea;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1311; --panel:#161d1a; --fg:#e4ece8; --muted:#8fa199; --line:#26312c;
+  --accent:#3ddc97; --accent-fg:#06140e; --warn:#f2b44b; --bad:#ff6b5e; --good:#3ddc97; --bubble:#1d2723; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1311; --panel:#161d1a; --fg:#e4ece8; --muted:#8fa199; --line:#26312c;
+  --accent:#3ddc97; --accent-fg:#06140e; --warn:#f2b44b; --bad:#ff6b5e; --good:#3ddc97; --bubble:#1d2723; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--body);display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;align-items:center;gap:10px;padding-block:12px;background:var(--panel)}
+h1{font:800 20px/1 var(--display);margin:0;letter-spacing:-.01em}
+.net{font:600 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.status{margin-left:auto;font:500 12px var(--mono);color:var(--muted);text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+nav{display:flex;gap:4px;padding-block:6px 8px;background:var(--panel);border-bottom:1px solid var(--line)}
+nav button{flex:1;border:0;background:transparent;color:var(--muted);font:600 13px var(--body);padding:8px 4px;border-radius:8px;cursor:pointer}
+nav button[aria-selected="true"]{background:var(--bubble);color:var(--fg)}
+#notice{display:flex;flex-direction:column;gap:8px}
+#notice:not(:empty){padding-block:10px}
+main{flex:1;overflow:auto;padding-block:16px}
+section{display:flex;flex-direction:column;gap:12px;max-width:760px;margin:0 auto}
+h2{font:800 17px var(--display);margin:6px 0 0}
+.lbl{font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.tile{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;color:var(--fg);display:flex;flex-direction:column;gap:2px;font:inherit}
+.tile b{font:600 15px var(--body)} .tile span{font-size:12.5px;color:var(--muted)}
+.tile .k{font:500 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+.seg button{flex:1;border:0;background:transparent;color:var(--muted);padding:9px 6px;font:600 13px var(--body);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.msg{padding:10px 14px;border-radius:14px;max-width:88%;white-space:pre-wrap;overflow-wrap:anywhere;min-width:0}
+.me{align-self:flex-end;background:var(--accent);color:var(--accent-fg)}
+.me img{display:block;max-width:180px;border-radius:8px;margin-bottom:6px}
+.ai{align-self:flex-start;background:var(--bubble)}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-self:flex-start;align-items:center}
+.tools button{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:3px 9px;font:500 12px var(--body);cursor:pointer}
+.meta{font:12px var(--mono);color:var(--muted)}
+.src{font-size:12.5px;color:var(--muted);align-self:flex-start}
+.src a{color:var(--accent)}
+.empty{color:var(--muted);text-align:center;padding:28px 8px}
+.empty b{display:block;font:800 21px var(--display);color:var(--fg);margin-bottom:6px}
+.composer{display:flex;flex-direction:column;gap:6px;padding-block:8px;border-top:1px solid var(--line);background:var(--panel)}
+.crow{display:flex;gap:6px;align-items:flex-end}
+textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:12px;padding:10px 12px;font:15px var(--body);max-height:140px}
+.icon{flex:none;width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer;display:grid;place-items:center;font:600 18px var(--body)}
+.icon svg{width:20px;height:20px}
+.icon.on{border-color:var(--accent);color:var(--accent)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;font:500 12px var(--body);padding:4px 10px;border-radius:99px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.chip.on{border-color:var(--accent);color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-fg);border:0;border-radius:12px;padding:10px 16px;font:600 14px var(--body);cursor:pointer}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:7px 12px;font:500 13px var(--body);cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type=search]{flex:1;min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:10px;padding:8px 12px;font:14px var(--body)}
+select{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:10px;padding:8px;font:14px var(--body);max-width:100%}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center}
+.card .name{font:600 14px var(--body);word-break:break-all;min-width:0}
+.card .sub{font:12px var(--mono);color:var(--muted);grid-column:1;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.card .acts{grid-row:1/3;grid-column:2;display:flex;flex-direction:column;gap:6px}
+.pill{display:inline-block;font:600 10.5px var(--mono);padding:1px 7px;border-radius:99px;border:1px solid currentColor;letter-spacing:.04em;text-transform:uppercase}
+.ok{color:var(--good)} .tight{color:var(--warn)} .no{color:var(--bad)} .new{color:var(--accent)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.kv dt{color:var(--muted);font-size:13px} .kv dd{margin:0;font:500 13px var(--mono);overflow-wrap:anywhere;min-width:0}
+.alert{border:1px solid var(--warn);background:var(--panel);border-radius:12px;padding:11px 14px;font-size:14px}
+.alert.bad{border-color:var(--bad)} .alert.info{border-color:var(--accent)}
+.alert strong{color:var(--warn)} .alert.bad strong{color:var(--bad)} .alert.info strong{color:var(--accent)}
+.alert .row{margin-top:8px}
+.bar{height:6px;background:var(--line);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+.current{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.current .n{font:600 14px var(--body);min-width:0;overflow-wrap:anywhere;flex:1}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<header class="wrap">
+  <h1>Chintu AI</h1>
+  <span class="net" id="net">offline</span>
+  <div class="status" id="status">starting…</div>
+</header>
+<nav class="wrap" role="tablist">
+  <button role="tab" data-tab="home" aria-selected="true">Home</button>
+  <button role="tab" data-tab="chat" aria-selected="false">Chat</button>
+  <button role="tab" data-tab="models" aria-selected="false">Models</button>
+  <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
+</nav>
+<div class="wrap" id="notice"></div>
+
+<main class="wrap" id="main">
+  <!-- HOME -->
+  <section id="tab-home">
+    <div class="current"><div class="n" id="curName">No model loaded</div><button class="ghost" id="curBtn">Choose</button></div>
+    <div>
+      <div class="lbl" style="margin-bottom:6px">Speed or brains</div>
+      <div class="seg" id="mode">
+        <button data-mode="fast" aria-pressed="false">Fastest</button>
+        <button data-mode="balanced" aria-pressed="true">Balanced</button>
+        <button data-mode="smart" aria-pressed="false">Smartest</button>
+      </div>
+    </div>
+    <div class="lbl">What do you want to do?</div>
+    <div class="tiles" id="tiles"></div>
+    <p class="meta" style="margin:0">Everything runs on this device. Your messages, photos and PDFs never leave it. Web lookup is the only thing that goes online, and only when you turn it on.</p>
+  </section>
+
+  <!-- CHAT -->
+  <section id="tab-chat" hidden>
+    <div id="loadbox" hidden>
+      <div class="row" style="justify-content:space-between"><span class="lbl" id="loadlabel">Downloading</span><span class="meta" id="loadpct">0%</span></div>
+      <div class="bar"><i id="loadbar"></i></div>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <span class="lbl" id="taskName">Chat</span>
+      <select id="lang" aria-label="Translate to" hidden>
+        <option>Hindi</option><option>Kannada</option><option>Tamil</option><option>Telugu</option><option>Malayalam</option>
+        <option>Marathi</option><option>Bengali</option><option>Gujarati</option><option>Punjabi</option><option>English</option>
+        <option>Spanish</option><option>French</option><option>Arabic</option><option>Japanese</option>
+      </select>
+    </div>
+    <div id="msgs" style="display:flex;flex-direction:column;gap:8px"></div>
+  </section>
+
+  <!-- MODELS -->
+  <section id="tab-models" hidden>
+    <div class="row"><button class="primary" id="autoBtn">Auto-pick best for this device</button></div>
+    <div class="chips" id="cats"></div>
+    <div class="row">
+      <input type="search" id="q" placeholder="Search (llama, qwen, phi, gemma…)">
+      <select id="filter" aria-label="Show">
+        <option value="fit">Fits this device</option>
+        <option value="all">All models</option>
+        <option value="cached">Downloaded</option>
+        <option value="new">New since last visit</option>
+      </select>
+    </div>
+    <div id="list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-settings" hidden>
+    <h2>This device</h2>
+    <dl class="kv" id="kv"></dl>
+    <h2>AI engine</h2>
+    <dl class="kv" id="engkv"></dl>
+    <div class="row"><button class="ghost" id="checkUpd">Check for updates</button><button class="ghost" id="stableEng">Use stable engine</button></div>
+    <h2>Replies</h2>
+    <div class="kv">
+      <dt>Creativity</dt><dd><input id="temp" type="range" min="0" max="1.5" step="0.1" value="0.7" aria-label="Creativity"> <span id="tempv">0.7</span></dd>
+      <dt>Max length</dt><dd><select id="maxTok"><option>256</option><option selected>1024</option><option>4096</option></select> tokens</dd>
+      <dt>Voice language</dt><dd><select id="voiceLang"><option value="en-IN">English (India)</option><option value="hi-IN">Hindi</option><option value="kn-IN">Kannada</option><option value="ta-IN">Tamil</option><option value="te-IN">Telugu</option><option value="ml-IN">Malayalam</option><option value="mr-IN">Marathi</option><option value="bn-IN">Bengali</option><option value="en-US">English (US)</option></select></dd>
+      <dt>Your note to the AI</dt><dd><textarea id="persona" rows="3" style="width:100%" placeholder="e.g. I'm a student in Bengaluru. Keep answers short. Use simple English."></textarea></dd>
+    </div>
+    <div class="row"><button class="ghost" id="clearChat">Clear chat history</button><button class="ghost" id="unload">Unload model (free memory)</button></div>
+    <h2>About</h2>
+    <p class="meta" style="margin:0">Chintu AI v0.2 · AI replies can be wrong; check important facts. <a href="privacy.html" style="color:var(--accent)">Privacy policy</a></p>
+  </section>
+</main>
+
+<form class="composer wrap" id="composer">
+  <div class="chips" id="attachRow">
+    <button type="button" class="chip" id="webChip" aria-pressed="false">Web lookup: off</button>
+    <span id="attChip"></span>
+  </div>
+  <div class="crow">
+    <button type="button" class="icon" id="attachBtn" aria-label="Attach photo or PDF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7L10.1 17.8a1.7 1.7 0 0 1-2.4-2.4L15.5 7.6"/></svg></button>
+    <input type="file" id="file" accept="image/*,application/pdf,.pdf" hidden>
+    <textarea id="input" rows="1" placeholder="Type a message"></textarea>
+    <button type="button" class="icon" id="micBtn" aria-label="Speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+    <button class="primary" id="send" style="height:42px">Send</button>
+  </div>
+</form>
+
+<script type="module">
+/* =========================================================
+   Chintu AI v0.2 — local AI in the browser (WebLLM + WebGPU)
+   ========================================================= */
+const PINNED = "0.2.79";                         // known-good engine version
+const engUrl = v => `https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@${v}/+esm`;
+const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ls = {
+  get(k,d){ try{ const v = localStorage.getItem("pf."+k); return v==null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem("ca."+k, JSON.stringify(v)); }catch(e){} }
+};
+const status = t => $("#status").textContent = t;
+
+/* ---------- notices (in-page confirms; no native dialogs) ---------- */
+function notice(html, kind="", actions=[]){
+  const box = document.createElement("div");
+  box.className = "alert " + kind;
+  box.innerHTML = html + (actions.length ? `<div class="row">${actions.map((a,i)=>`<button class="${i?'ghost':'primary'}" style="padding:7px 14px" data-i="${i}">${esc(a.label)}</button>`).join("")}</div>` : "");
+  box.querySelectorAll("[data-i]").forEach(b => b.onclick = () => { box.remove(); actions[+b.dataset.i].go?.(); });
+  if (!actions.length) setTimeout(() => box.remove(), 7000);
+  $("#notice").prepend(box);
+  while ($("#notice").children.length > 3) $("#notice").lastElementChild.remove();
+  return box;
+}
+const cancel = {label:"Cancel"};
+
+/* ---------- tabs ---------- */
+function tab(name){
+  document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-selected", x.dataset.tab === name));
+  ["home","chat","models","settings"].forEach(t => $("#tab-"+t).hidden = t !== name);
+  $("#composer").hidden = name !== "chat";
+  if (name === "chat") scrollEnd();
+}
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => tab(b.dataset.tab));
+
+/* ---------- online badge ---------- */
+function net(){ const on = navigator.onLine; $("#net").textContent = on ? "online" : "offline · private"; }
+addEventListener("online", net); addEventListener("offline", net); net();
+
+/* ---------- device probe ---------- */
+const dev = { webgpu:false, ramGB:navigator.deviceMemory || null, cores:navigator.hardwareConcurrency || null,
+  mobile:/Android|iPhone|iPad/i.test(navigator.userAgent), maxBufMB:0, gpu:"unknown", f16:false,
+  quotaGB:null, usedGB:null, budgetMB:0, battery:null };
+async function probe(){
+  try{
+    if (navigator.gpu){
+      const a = await navigator.gpu.requestAdapter({powerPreference:"high-performance"});
+      if (a){
+        dev.webgpu = true;
+        dev.maxBufMB = Math.round(a.limits.maxBufferSize/1048576);
+        dev.f16 = a.features.has("shader-f16");
+        const info = a.info || (a.requestAdapterInfo ? await a.requestAdapterInfo() : {});
+        dev.gpu = [info.vendor, info.architecture, info.description].filter(Boolean).join(" ") || "unknown";
+      }
+    }
+  }catch(e){}
+  try{ const e = await navigator.storage.estimate(); dev.quotaGB=(e.quota/1e9).toFixed(1); dev.usedGB=(e.usage/1e9).toFixed(2); }catch(e){}
+  try{ if (navigator.storage.persist) dev.persisted = await navigator.storage.persist(); }catch(e){}
+  try{ if (navigator.getBattery){ const b = await navigator.getBattery(); dev.battery = {level:b.level, charging:b.charging}; } }catch(e){}
+  // Browsers cap deviceMemory at 8, so 8 means "8 GB or more".
+  const ram = dev.ramGB ? dev.ramGB*1024 : (dev.mobile ? 4096 : 8192);
+  dev.budgetMB = Math.round(dev.mobile ? ram*0.55 : ram*0.75);
+  if (!dev.mobile && dev.ramGB >= 8) dev.budgetMB = Math.max(dev.budgetMB, 6000);
+  renderDevice();
+}
+function renderDevice(){
+  const rows = [
+    ["Runs AI here", dev.webgpu ? "yes (WebGPU)" : "no, WebGPU missing"],
+    ["Graphics chip", dev.gpu], ["Fast 16-bit maths", dev.f16 ? "yes" : "no (uses q4f32 models)"],
+    ["Memory", dev.ramGB ? (dev.ramGB>=8 ? "8 GB or more" : dev.ramGB+" GB") : "hidden by browser"],
+    ["Model size limit", "about "+(dev.budgetMB/1024).toFixed(1)+" GB"],
+    ["Storage", dev.quotaGB ? `${dev.usedGB} GB used of ${dev.quotaGB} GB` : "unknown"],
+    ["Models protected", dev.persisted ? "yes" : "no, browser may delete them when space is low"],
+    ["Battery", dev.battery ? Math.round(dev.battery.level*100)+"%"+(dev.battery.charging?", charging":"") : "unknown"],
+  ];
+  $("#kv").innerHTML = rows.map(([k,v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+  if (!dev.webgpu) notice(`<strong>This browser can't run AI models.</strong> Use Chrome 121 or newer on Android 12+, or Chrome/Edge on a computer. On iPhone, use Safari 26+.`, "bad", [{label:"OK"}]);
+}
+
+/* ---------- engine (with auto-update) ---------- */
+let webllm, ENGINE_VER = ls.get("engineVer", PINNED), LATEST = null;
+async function importEngine(){
+  try{ webllm = await import(engUrl(ENGINE_VER)); }
+  catch(e){
+    if (ENGINE_VER === PINNED) throw e;
+    ENGINE_VER = PINNED; ls.set("engineVer", PINNED);
+    webllm = await import(engUrl(PINNED));
+    notice(`<strong>The new engine didn't start.</strong> Switched back to the stable one.`, "bad");
+  }
+}
+const newer = (a,b) => { const x=a.split(".").map(Number), y=b.split(".").map(Number);
+  for (let i=0;i<3;i++){ if ((x[i]||0)!==(y[i]||0)) return (x[i]||0)>(y[i]||0); } return false; };
+async function checkLatest(manual){
+  if (!navigator.onLine){ if (manual) notice(`<strong>You're offline.</strong> Connect to check for updates.`); return; }
+  try{
+    const r = await fetch("https://data.jsdelivr.com/v1/packages/npm/@mlc-ai/web-llm/resolved?specifier=latest");
+    LATEST = (await r.json()).version;
+    renderEngine();
+    if (LATEST && newer(LATEST, ENGINE_VER))
+      notice(`<strong>AI engine update: ${esc(LATEST)}.</strong> Newer engines usually add new models and speed-ups. Your downloaded models stay.`, "info",
+        [{label:"Update now", go(){ ls.set("engineVer", LATEST); location.reload(); }}, {label:"Later"}]);
+    else if (manual) notice(`<strong>You're up to date.</strong> Engine ${esc(ENGINE_VER)}.`, "info");
+  }catch(e){ if (manual) notice(`<strong>Couldn't check for updates.</strong> Try again later.`); }
+}
+function renderEngine(){
+  $("#engkv").innerHTML = `<dt>Engine</dt><dd>WebLLM ${esc(ENGINE_VER)}${ENGINE_VER===PINNED?" (stable)":""}</dd>
+    <dt>Newest</dt><dd>${LATEST ? esc(LATEST) : "not checked"}</dd>
+    <dt>Models in engine</dt><dd>${catalog.length}</dd>`;
+}
+$("#checkUpd").onclick = () => checkLatest(true);
+$("#stableEng").onclick = () => { ls.set("engineVer", PINNED); location.reload(); };
+
+/* ---------- catalog + categories ---------- */
+let catalog = [], cached = new Set(), engine = null, current = null, busy = false, catFilter = "All";
+const paramsB = id => { const m = id.match(/(\d+(?:\.\d+)?)B/i); return m ? parseFloat(m[1]) : 0; };
+function category(id){
+  if (/vision|llava|-vl-/i.test(id)) return "Vision";
+  if (/coder|code/i.test(id)) return "Code";
+  if (/R1|Math|QwQ|reason/i.test(id)) return "Reasoning";
+  return "Chat";
+}
+const CATS = ["All","Chat","Code","Reasoning","Vision","Tiny"];
+function fit(m){
+  if (!dev.webgpu) return "no";
+  const v = m.vram || 99999;
+  if (/f16/.test(m.id) && !/f32/.test(m.id) && !dev.f16) return "no";
+  if (v <= dev.budgetMB*0.8) return "ok";
+  if (v <= dev.budgetMB*1.1) return "tight";
+  return "no";
+}
+// Quality score: bigger is smarter; newer families get a nudge.
+const FAMILY = ["Qwen3","Llama-3.2","Llama-3.1","Phi-3.5","gemma-2","Qwen2.5","Mistral","SmolLM2","Hermes"];
+const score = m => { const f = FAMILY.findIndex(x => m.id.includes(x)); return m.vram + (f<0?0:(FAMILY.length-f)*40) + (dev.f16 && /f16/.test(m.id) ? 30 : 0); };
+
+async function loadCatalog(){
+  status("loading engine…");
+  await importEngine();
+  const seen = new Set(ls.get("seen", []));
+  const firstVisit = seen.size === 0;
+  catalog = webllm.prebuiltAppConfig.model_list
+    .filter(m => !/embed|snowflake|-1k$/i.test(m.model_id))
+    .map(m => ({ id:m.model_id, vram:m.vram_required_MB || 0, p:paramsB(m.model_id), cat:category(m.model_id),
+                 ctx:(m.overrides && m.overrides.context_window_size) || 4096 }));
+  catalog.forEach(m => m.isNew = !firstVisit && !seen.has(m.id));
+  ls.set("seen", catalog.map(m => m.id));
+  const nNew = catalog.filter(m => m.isNew).length;
+  if (nNew) notice(`<strong>${nNew} new model${nNew>1?"s":""} available.</strong> See Models → “New since last visit”.`, "info",
+    [{label:"Show", go(){ $("#filter").value="new"; renderList(); tab("models"); }}, {label:"Later"}]);
+  await Promise.all(catalog.map(async m => { try{ if (await webllm.hasModelInCache(m.id)) cached.add(m.id); }catch(e){} }));
+  renderEngine(); renderCats(); renderList(); renderCurrent();
+  status(cached.size ? `${cached.size} model${cached.size>1?"s":""} on device` : "ready");
+  // Reopen the last model automatically if it's already downloaded.
+  const last = ls.get("lastModel", null);
+  if (last && cached.has(last) && dev.webgpu) load(last, true);
+}
+
+function renderCats(){
+  $("#cats").innerHTML = CATS.map(c => `<button class="chip ${c===catFilter?'on':''}" data-cat="${c}">${c}</button>`).join("");
+}
+$("#cats").onclick = e => { const c = e.target.dataset.cat; if (c){ catFilter = c; renderCats(); renderList(); } };
+
+function renderList(){
+  const q = $("#q").value.toLowerCase(), f = $("#filter").value;
+  let rows = catalog.filter(m => m.id.toLowerCase().includes(q));
+  if (catFilter === "Tiny") rows = rows.filter(m => m.p && m.p < 1.6);
+  else if (catFilter !== "All") rows = rows.filter(m => m.cat === catFilter);
+  if (f === "fit") rows = rows.filter(m => fit(m) !== "no");
+  if (f === "cached") rows = rows.filter(m => cached.has(m.id));
+  if (f === "new") rows = rows.filter(m => m.isNew);
+  rows.sort((a,b) => (cached.has(b.id)-cached.has(a.id)) || score(b)-score(a));
+  if (!rows.length){ $("#list").innerHTML = `<div class="empty">No models match.<br>Try “All models” or another category.</div>`; return; }
+  $("#list").innerHTML = rows.map(m => {
+    const fl = fit(m), gb = (m.vram/1024).toFixed(1), isCur = current === m.id, isC = cached.has(m.id);
+    const tag = fl==="ok" ? `<span class="pill ok">fits</span>` : fl==="tight" ? `<span class="pill tight">tight</span>` : `<span class="pill no">too big</span>`;
+    return `<div class="card">
+      <div class="name">${esc(m.id.replace(/-MLC$/,""))}</div>
+      <div class="acts">
+        <button class="primary" style="padding:8px 12px" data-load="${esc(m.id)}" ${busy||isCur?"disabled":""}>${isCur?"In use":isC?"Use":"Get"}</button>
+        ${isC?`<button class="ghost" data-del="${esc(m.id)}" ${busy||isCur?"disabled":""}>Delete</button>`:""}
+      </div>
+      <div class="sub">${tag}<span class="pill">${m.cat}</span>${m.isNew?'<span class="pill new">new</span>':""} ~${gb} GB · ${m.p||"?"}B${isC?" · on device":""}</div>
+    </div>`;
+  }).join("");
+}
+$("#q").oninput = renderList; $("#filter").onchange = renderList;
+$("#list").onclick = async e => {
+  const l = e.target.dataset.load, d = e.target.dataset.del;
+  if (l) confirmLoad(l);
+  if (d) notice(`<strong>Delete ${esc(d.replace(/-MLC$/,""))}?</strong> You'd need to download it again to use it.`, "", [
+    {label:"Delete", async go(){ busy=true; renderList(); await webllm.deleteModelAllInfoInCache(d); cached.delete(d); busy=false; renderList(); status("deleted"); }}, cancel]);
+};
+$("#autoBtn").onclick = () => { const m = pickModel("Chat", mode); m ? confirmLoad(m.id) : notice(`<strong>Nothing fits comfortably.</strong> Try a Tiny model under “All models”, or use a computer.`, "bad", [{label:"OK"}]); };
+
+/* ---------- smart model picking ---------- */
+let mode = ls.get("mode", "balanced");
+function pickModel(cat, md){
+  const ok = m => fit(m) === "ok";
+  let pool = catalog.filter(m => ok(m) && m.cat === cat);
+  if (!pool.length && cat !== "Vision") pool = catalog.filter(m => ok(m) && m.cat === "Chat");
+  if (!pool.length) return null;
+  const best = arr => [...arr].sort((a,b) => score(b)-score(a))[0];
+  if (md === "smart") return best(pool);
+  if (md === "fast") return [...pool].sort((a,b) => a.vram-b.vram).find(m => m.p >= 1) || pool[0];
+  const mid = pool.filter(m => m.vram <= Math.min(dev.budgetMB*0.5, 3200));
+  return best(mid.length ? mid : pool);
+}
+function renderMode(){ document.querySelectorAll("#mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === mode)); }
+$("#mode").onclick = e => { const m = e.target.dataset.mode; if (m){ mode = m; ls.set("mode", m); renderMode(); } };
+renderMode();
+
+function confirmLoad(id, after){
+  const m = catalog.find(x => x.id === id); if (!m) return;
+  const fl = fit(m), gb = (m.vram/1024).toFixed(1);
+  if (cached.has(id) && fl === "ok") return load(id).then(after);
+  const lowBatt = dev.battery && !dev.battery.charging && dev.battery.level < 0.25;
+  notice(`<strong>${fl==="no"?"Probably too big for this device.":fl==="tight"?"This one is a tight fit.":`Get ${esc(id.replace(/-MLC$/,""))}?`}</strong>
+    ${cached.has(id) ? "Already downloaded." : `One-time download of about ${gb} GB. Use Wi-Fi and keep this screen open.`}
+    Needs about ${gb} GB of free memory while running.${fl!=="ok"?" The app may crash or the phone may slow down.":""}${lowBatt?" Battery is low; plug in first.":""}`,
+    fl==="no" ? "bad" : "", [{label: cached.has(id) ? "Load" : "Download", go(){ load(id).then(after); }}, cancel]);
+}
+
+function makeWorker(){
+  const src = `import { WebWorkerMLCEngineHandler } from "${engUrl(ENGINE_VER)}";
+    const h = new WebWorkerMLCEngineHandler(); self.onmessage = m => h.onmessage(m);`;
+  return new Worker(URL.createObjectURL(new Blob([src],{type:"text/javascript"})), {type:"module"});
+}
+async function load(id, quiet){
+  if (busy) return;
+  busy = true; renderList();
+  if (!quiet) tab("chat");
+  $("#loadbox").hidden = false; $("#loadlabel").textContent = "Preparing";
+  const t0 = performance.now();
+  try{
+    const progress = r => {
+      const p = Math.round(r.progress*100);
+      $("#loadbar").style.width = p+"%"; $("#loadpct").textContent = p+"%";
+      $("#loadlabel").textContent = /fetch|download/i.test(r.text) ? "Downloading" : "Loading into memory";
+      status(r.text.slice(0,60));
+    };
+    if (!engine) engine = await webllm.CreateWebWorkerMLCEngine(makeWorker(), id, { initProgressCallback: progress });
+    else { engine.setInitProgressCallback(progress); await engine.reload(id); }
+    current = id; cached.add(id); ls.set("lastModel", id);
+    status(`ready in ${((performance.now()-t0)/1000).toFixed(0)}s`);
+  }catch(err){
+    status("load failed");
+    notice(`<strong>Couldn't load this model.</strong> ${esc(err.message||err)}. Try a smaller one, close other apps, or restart Chrome.`, "bad", [{label:"OK"}]);
+  }
+  $("#loadbox").hidden = true; busy = false; renderList(); renderCurrent();
+}
+function renderCurrent(){
+  const m = catalog.find(x => x.id === current);
+  $("#curName").innerHTML = m ? `${esc(m.id.replace(/-MLC$/,""))} <span class="pill">${m.cat}</span>` : "No model loaded";
+  $("#curBtn").textContent = m ? "Change" : "Choose";
+}
+$("#curBtn").onclick = () => tab("models");
+
+/* ---------- tasks (the Home screen) ---------- */
+const TASKS = {
+  chat:      {t:"Chat", d:"Ask anything", k:"general", cat:"Chat", sys:"You are a fast, helpful assistant running offline on the user's device. Be clear and concise."},
+  photo:     {t:"Ask a photo", d:"Read signs, bills, homework, labels", k:"vision", cat:"Vision", attach:true, sys:"You look at images carefully. Read any visible text exactly. Then answer the question.", ph:"What do you want to know about the photo?"},
+  pdf:       {t:"Ask a PDF", d:"Notes, bills, forms, books", k:"documents", cat:"Chat", attach:true, sys:"Answer only from the document excerpts given. Mention page numbers like (p. 3). If the answer isn't there, say you couldn't find it.", ph:"Ask about the PDF, or just tap Send to summarize"},
+  summarize: {t:"Summarize", d:"Paste a long message or article", k:"reading", cat:"Chat", sys:"Summarize the text in at most 5 short bullet points, then one line: what matters most.", ph:"Paste the text here"},
+  translate: {t:"Translate", d:"Hindi, Kannada, Tamil and more", k:"language", cat:"Chat", lang:true, ph:"Text to translate"},
+  write:     {t:"Write for me", d:"Messages, emails, applications", k:"writing", cat:"Chat", sys:"Write a clear, natural, ready-to-send draft. No questions, no preamble.", ph:"e.g. leave letter to my manager for 2 days"},
+  code:      {t:"Code helper", d:"Write and fix code", k:"coding", cat:"Code", sys:"You are an expert programmer. Give working code first, then a short explanation.", ph:"Describe what to build, or paste an error"},
+  think:     {t:"Solve step by step", d:"Maths, logic, decisions", k:"reasoning", cat:"Reasoning", sys:"Work through the problem step by step, briefly, then give the final answer on its own line.", ph:"Your problem"},
+  simple:    {t:"Explain simply", d:"Any topic, no jargon", k:"learning", cat:"Chat", sys:"Explain like you're talking to a curious 12-year-old: short sentences, everyday examples, no jargon.", ph:"What should I explain?"},
+};
+let task = ls.get("task", "chat");
+$("#tiles").innerHTML = Object.entries(TASKS).map(([k,v]) =>
+  `<button class="tile" data-task="${k}"><span class="k">${v.k}</span><b>${v.t}</b><span>${v.d}</span></button>`).join("");
+$("#tiles").onclick = e => { const b = e.target.closest("[data-task]"); if (b) startTask(b.dataset.task); };
+
+function startTask(k){
+  task = k; ls.set("task", k); applyTask(); tab("chat");
+  const T = TASKS[k], cur = catalog.find(m => m.id === current);
+  const needsVision = T.cat === "Vision" && (!cur || cur.cat !== "Vision");
+  if (!dev.webgpu) return;
+  if (!cur || needsVision){
+    const m = pickModel(T.cat, mode);
+    if (!m) return notice(`<strong>No ${T.cat.toLowerCase()} model fits this device.</strong> ${T.cat==="Vision"?"Photo questions need about 3 GB of free memory.":""}`, "bad", [{label:"OK"}]);
+    confirmLoad(m.id);
+  } else if (T.cat !== "Chat" && cur.cat !== T.cat){
+    const m = pickModel(T.cat, mode);
+    if (m && m.cat === T.cat) notice(`<strong>Tip:</strong> a ${T.cat} model does this better (${esc(m.id.replace(/-MLC$/,""))}).`, "info",
+      [{label:"Switch", go(){ confirmLoad(m.id); }}, {label:"Keep current"}]);
+  }
+  if (T.attach && !attachment) setTimeout(() => $("#file").click(), 50);
+}
+function applyTask(){
+  const T = TASKS[task] || TASKS.chat;
+  $("#taskName").textContent = T.t;
+  $("#lang").hidden = !T.lang;
+  $("#input").placeholder = T.ph || "Type a message";
+}
+
+/* ---------- attachments: photo + PDF ---------- */
+let attachment = null;   // {kind:"image", url} | {kind:"pdf", name, pages, chunks}
+$("#attachBtn").onclick = () => $("#file").click();
+$("#file").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try{
+    if (f.type.startsWith("image/")){
+      attachment = { kind:"image", url: await shrinkImage(f), name:f.name };
+      if (task !== "photo"){ task = "photo"; applyTask(); }
+      const cur = catalog.find(m => m.id === current);
+      if (!cur || cur.cat !== "Vision"){
+        const m = pickModel("Vision", mode);
+        m ? confirmLoad(m.id) : notice(`<strong>No photo model fits this device.</strong>`, "bad", [{label:"OK"}]);
+      }
+    } else if (/pdf/i.test(f.type) || /\.pdf$/i.test(f.name)){
+      status("reading PDF…");
+      const pages = await readPdf(f);
+      const chars = pages.reduce((s,p) => s+p.length, 0);
+      if (chars < 40){ notice(`<strong>This PDF has no readable text.</strong> It's probably scanned photos. Take a screenshot of the page and use “Ask a photo”.`, "bad", [{label:"OK"}]); status("ready"); return; }
+      attachment = { kind:"pdf", name:f.name, pages:pages.length, chunks: chunkPages(pages) };
+      if (task !== "pdf"){ task = "pdf"; applyTask(); }
+      status(`PDF: ${pages.length} pages ready`);
+    } else notice(`<strong>That file type isn't supported yet.</strong> Use a photo or a PDF.`);
+  }catch(err){ notice(`<strong>Couldn't open that file.</strong> ${esc(err.message||err)}`, "bad", [{label:"OK"}]); }
+  renderAttach();
+};
+function renderAttach(){
+  $("#attChip").innerHTML = attachment
+    ? `<span class="chip on">${attachment.kind==="image" ? "Photo" : `${esc(attachment.name)} · ${attachment.pages} pages`} <span aria-hidden="true">×</span></span>` : "";
+  const c = $("#attChip .chip"); if (c) c.onclick = () => { attachment = null; renderAttach(); };
+}
+async function shrinkImage(file){
+  const bmp = await createImageBitmap(file);
+  const s = Math.min(1, 768 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width = Math.round(bmp.width*s); c.height = Math.round(bmp.height*s);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.85);
+}
+function loadScript(src){ return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.append(s); }); }
+async function readPdf(file){
+  if (!window.pdfjsLib) await loadScript(PDFJS + "pdf.min.js");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.js";
+  const doc = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pages = [];
+  for (let i = 1; i <= doc.numPages; i++){
+    const tc = await (await doc.getPage(i)).getTextContent();
+    pages.push(tc.items.map(x => x.str).join(" ").replace(/\s+/g, " ").trim());
+    status(`reading page ${i}/${doc.numPages}`);
+  }
+  return pages;
+}
+/* Split pages into ~900-char pieces that remember their page number. */
+function chunkPages(pages){
+  const out = [];
+  pages.forEach((t, i) => { for (let s = 0; s < t.length; s += 800) out.push({ page:i+1, text:t.slice(s, s+900) }); });
+  return out;
+}
+/* Find the pieces most related to the question (keyword search, works offline). */
+function topChunks(chunks, q, maxChars){
+  const terms = [...new Set((q.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) || []))];
+  let picked;
+  if (!terms.length || chunks.length * 900 <= maxChars){
+    const step = Math.max(1, Math.ceil(chunks.length * 900 / maxChars));
+    picked = chunks.filter((_, i) => i % step === 0);
+  } else {
+    const low = chunks.map(c => c.text.toLowerCase()), N = chunks.length;
+    const idf = Object.fromEntries(terms.map(t => [t, Math.log(1 + N / (1 + low.filter(x => x.includes(t)).length))]));
+    picked = chunks.map((c, i) => ({ c, i, s: terms.reduce((s, t) => s + (low[i].split(t).length - 1) * idf[t], 0) }))
+      .filter(x => x.s > 0).sort((a, b) => b.s - a.s).map(x => x.c);
+    if (!picked.length) picked = chunks.slice(0, 6);
+  }
+  const res = []; let n = 0;
+  for (const c of picked){ if (n + c.text.length > maxChars) break; res.push(c); n += c.text.length; }
+  return res.sort((a, b) => a.page - b.page);
+}
+window.__pf = { chunkPages, topChunks };   // exposed for testing
+
+/* ---------- web lookup (Wikipedia: free, no key, only when switched on) ---------- */
+let web = false;
+$("#webChip").onclick = () => { web = !web; $("#webChip").classList.toggle("on", web); $("#webChip").setAttribute("aria-pressed", web); $("#webChip").textContent = "Web lookup: " + (web ? "on" : "off"); };
+async function wiki(q){
+  const base = "https://en.wikipedia.org/w/api.php?format=json&origin=*&";
+  const s = await (await fetch(base + "action=query&list=search&srlimit=3&srsearch=" + encodeURIComponent(q))).json();
+  const ids = (s.query?.search || []).map(x => x.pageid); if (!ids.length) return [];
+  const e = await (await fetch(base + "action=query&prop=extracts&exintro=1&explaintext=1&pageids=" + ids.join("|"))).json();
+  return ids.map(id => e.query.pages[id]).filter(p => p && p.extract)
+    .map(p => ({ title:p.title, text:p.extract.slice(0, 1400), url:"https://en.wikipedia.org/?curid=" + p.pageid }));
+}
+
+/* ---------- voice ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+$("#voiceLang").value = ls.get("voiceLang", "en-IN");
+$("#voiceLang").onchange = e => ls.set("voiceLang", e.target.value);
+$("#micBtn").onclick = () => {
+  if (!SR) return notice(`<strong>Voice typing isn't available in this browser.</strong> Use your keyboard's mic button instead.`);
+  if (rec){ rec.stop(); return; }
+  rec = new SR(); rec.lang = $("#voiceLang").value; rec.interimResults = true;
+  const base = $("#input").value;
+  rec.onresult = e => { $("#input").value = base + [...e.results].map(r => r[0].transcript).join(""); };
+  rec.onend = () => { rec = null; $("#micBtn").classList.remove("on"); };
+  rec.onerror = () => notice(`<strong>Voice typing stopped.</strong> Chrome's voice typing needs internet.`);
+  rec.start(); $("#micBtn").classList.add("on");
+};
+function speak(text){
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text); u.lang = $("#voiceLang").value; speechSynthesis.speak(u);
+}
+
+/* ---------- chat ---------- */
+let history = ls.get("chat", []);
+const scrollEnd = () => { const m = $("#main"); m.scrollTop = m.scrollHeight; };
+function addBubble(who, text, img){
+  $("#msgs .empty")?.remove();
+  const d = document.createElement("div"); d.className = "msg " + who;
+  if (img){ const i = document.createElement("img"); i.src = img; i.alt = "Attached photo"; d.append(i); }
+  d.append(document.createTextNode(text)); $("#msgs").append(d); scrollEnd(); return d;
+}
+function addTools(text, meta, sources){
+  if (sources?.length){
+    const s = document.createElement("div"); s.className = "src";
+    s.innerHTML = "Sources: " + sources.map(x => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>`).join(", ");
+    $("#msgs").append(s);
+  }
+  const t = document.createElement("div"); t.className = "tools";
+  t.innerHTML = `<button data-a="copy">Copy</button><button data-a="say">Read aloud</button><button data-a="report">Report</button>${meta?`<span class="meta">${esc(meta)}</span>`:""}`;
+  t.querySelector('[data-a="report"]').onclick = () => reportReply(text);
+  t.querySelector('[data-a="copy"]').onclick = async ev => { try{ await navigator.clipboard.writeText(text); ev.target.textContent = "Copied"; }catch(e){ ev.target.textContent = "Copy failed"; } };
+  t.querySelector('[data-a="say"]').onclick = () => speak(text);
+  $("#msgs").append(t);
+}
+/* Report an AI reply (Google Play AI-generated content policy). Nothing is sent unless the user chooses to email it. */
+const CONTACT = "chintuplay.support@gmail.com";
+function reportReply(text){
+  const reports = ls.get("reports", []); reports.push({ at: Date.now(), model: current, text: text.slice(0, 500) }); ls.set("reports", reports.slice(-50));
+  const body = encodeURIComponent(`Model: ${current}\n\nReply:\n${text.slice(0, 1500)}\n\nWhat's wrong:\n`);
+  notice(`<strong>Thanks, reply flagged.</strong> To help fix it, email it to <span style="user-select:all">${CONTACT}</span>. Nothing is sent unless you do.`, "info",
+    [{label:"Email report", go(){ location.href = `mailto:${CONTACT}?subject=Chintu%20AI%20report&body=${body}`; }}, {label:"Done"}]);
+}
+function renderHistory(){
+  $("#msgs").innerHTML = history.length ? "" :
+    `<div class="empty"><b>Your AI, on this device.</b>Pick a task on Home, or just type. Attach a photo or PDF with the clip button.</div>`;
+  history.forEach(h => { addBubble(h.role === "user" ? "me" : "ai", h.content + (h.att ? `\n[${h.att}]` : "")); if (h.role === "assistant") addTools(h.content, h.meta, h.sources); });
+}
+const save = () => ls.set("chat", history.slice(-60));
+
+$("#input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !/Android|iPhone/i.test(navigator.userAgent)){ e.preventDefault(); $("#composer").requestSubmit(); } });
+$("#input").addEventListener("input", e => { e.target.style.height = "auto"; e.target.style.height = Math.min(140, e.target.scrollHeight) + "px"; });
+
+let generating = false;
+$("#composer").onsubmit = async e => {
+  e.preventDefault();
+  if (generating){ engine?.interruptGenerate(); return; }
+  if (!current){
+    const m = pickModel(TASKS[task].cat, mode);
+    return m ? confirmLoad(m.id) : notice(`<strong>Load a model first.</strong> Open Models.`, "", [{label:"Open Models", go(){ tab("models"); }}]);
+  }
+  if (busy) return notice(`<strong>Still loading the model.</strong> One moment.`);
+  let text = $("#input").value.trim();
+  const T = TASKS[task] || TASKS.chat, cur = catalog.find(m => m.id === current);
+  if (!text && attachment?.kind === "pdf") text = "Summarize this document.";
+  if (!text && attachment?.kind === "image") text = "Describe this photo and read any text in it.";
+  if (!text) return;
+  if (attachment?.kind === "image" && cur.cat !== "Vision") return notice(`<strong>This model can't see photos.</strong>`, "", [{label:"Get a photo model", go(){ const m = pickModel("Vision", mode); m && confirmLoad(m.id); }}, cancel]);
+
+  $("#input").value = ""; $("#input").style.height = "auto";
+  const att = attachment;
+  addBubble("me", text, att?.kind === "image" ? att.url : null);
+
+  // Build the system prompt from task + user's note + any extra context.
+  const persona = $("#persona").value.trim();
+  let sys = T.lang ? `Translate the user's text into ${$("#lang").value}. Output only the translation, in ${$("#lang").value} script.` : T.sys;
+  if (persona) sys += `\nAbout the user: ${persona}`;
+  let userContent = text, sources = null;
+  const maxChars = Math.max(2000, Math.min(9000, (cur.ctx - 1400) * 3));
+
+  if (att?.kind === "pdf"){
+    const parts = topChunks(att.chunks, text, maxChars);
+    userContent = `Document: ${att.name}\n\n` + parts.map(c => `[p. ${c.page}] ${c.text}`).join("\n\n") + `\n\nQuestion: ${text}`;
+  }
+  if (web && navigator.onLine && !att){
+    status("looking up…");
+    try{ sources = await wiki(text); }catch(err){ sources = []; }
+    if (sources.length) userContent = `Background from Wikipedia:\n` + sources.map(s => `## ${s.title}\n${s.text}`).join("\n\n") + `\n\nUsing that where useful, answer: ${text}`;
+  }
+  if (att?.kind === "image") userContent = [{type:"text", text}, {type:"image_url", image_url:{url:att.url}}];
+
+  // Short memory for long-context tasks keeps it fast; full images only for the current turn.
+  const keep = att ? 2 : 8;
+  const msgs = [{role:"system", content:sys}, ...history.slice(-keep).map(h => ({role:h.role, content:h.content})), {role:"user", content:userContent}];
+  history.push({role:"user", content:text, att: att ? (att.kind === "image" ? "photo" : att.name) : null});
+
+  const out = addBubble("ai", "…");
+  generating = true; $("#send").textContent = "Stop";
+  const t0 = performance.now(); let first = 0, reply = "", usage;
+  try{
+    status("thinking…");
+    const stream = await engine.chat.completions.create({ messages:msgs, stream:true, stream_options:{include_usage:true},
+      temperature:+$("#temp").value, max_tokens:+$("#maxTok").value });
+    for await (const c of stream){
+      const d = c.choices[0]?.delta?.content || "";
+      if (d && !first) first = performance.now();
+      reply += d; out.lastChild.textContent = reply || "…";
+      if (c.usage) usage = c.usage;
+      scrollEnd();
+    }
+  }catch(err){ reply += `\n[stopped: ${err.message || err}]`; out.lastChild.textContent = reply; }
+  const tps = usage?.extra?.decode_tokens_per_s;
+  const meta = `${tps ? tps.toFixed(1) + " tokens/s" : ""}${first ? " · started in " + ((first - t0)/1000).toFixed(1) + "s" : ""}`.replace(/^ · /, "");
+  history.push({role:"assistant", content:reply, meta, sources});
+  addTools(reply, meta, sources); save();
+  if (att?.kind === "image"){ attachment = null; renderAttach(); }
+  generating = false; $("#send").textContent = "Send"; status("ready");
+};
+
+/* ---------- settings ---------- */
+$("#temp").oninput = e => $("#tempv").textContent = e.target.value;
+$("#persona").value = ls.get("persona", "");
+$("#persona").onchange = e => ls.set("persona", e.target.value);
+$("#clearChat").onclick = () => notice(`<strong>Clear all chat history?</strong>`, "", [{label:"Clear", async go(){ history = []; save(); renderHistory(); if (engine) await engine.resetChat(); }}, cancel]);
+$("#unload").onclick = async () => { if (engine){ await engine.unload(); current = null; renderList(); renderCurrent(); status("memory freed"); } };
+
+/* ---------- shared from other apps (Android "Share" → Chintu AI) ---------- */
+const sp = new URLSearchParams(location.search);
+const shared = [sp.get("title"), sp.get("text"), sp.get("url")].filter(Boolean).join("\n");
+if (shared){ task = "summarize"; $("#input").value = shared; }
+
+/* ---------- start ---------- */
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+applyTask(); renderHistory(); renderCurrent(); tab(shared ? "chat" : "home");
+await probe();
+loadCatalog().then(() => checkLatest(false)).catch(e => { status("engine didn't load"); notice(`<strong>Couldn't load the AI engine.</strong> Connect to the internet once so it can download, then it works offline.`, "bad", [{label:"Retry", go(){ location.reload(); }}]); });
+</script>
+</body>
+</html>
