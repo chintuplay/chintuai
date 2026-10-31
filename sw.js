@@ -1,6 +1,6 @@
 // Chintu AI service worker: makes the app itself open with no internet.
 // AI models are cached separately by the engine, so they are not handled here.
-const V = "ca-v1";
+const V = "ca-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./privacy.html"];
 const CDN = /(^|\.)cdn\.jsdelivr\.net$|^cdnjs\.cloudflare\.com$|^fonts\.(googleapis|gstatic)\.com$/;
 
