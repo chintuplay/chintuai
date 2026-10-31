@@ -177,7 +177,7 @@ select{border:1px solid var(--line);background:var(--panel);color:var(--fg);bord
     </div>
     <div class="row"><button class="ghost" id="clearChat">Clear chat history</button><button class="ghost" id="unload">Unload model (free memory)</button></div>
     <h2>About</h2>
-    <p class="meta" style="margin:0">Chintu AI v0.2.5 · AI replies can be wrong; check important facts. <a href="privacy.html" style="color:var(--accent)">Privacy policy</a></p>
+    <p class="meta" style="margin:0">Chintu AI v0.2.6 · AI replies can be wrong; check important facts. <a href="privacy.html" style="color:var(--accent)">Privacy policy</a></p>
   </section>
 </main>
 
@@ -379,7 +379,9 @@ function renderList(){
   if (f === "fit") rows = rows.filter(m => fit(m) !== "no");
   if (f === "cached") rows = rows.filter(m => cached.has(m.id));
   if (f === "new") rows = rows.filter(m => m.isNew);
-  rows.sort((a,b) => (cached.has(b.id)-cached.has(a.id)) || score(b)-score(a));
+  // Downloaded first, then what fits, then tight, then too big; best first inside each group.
+  const rank = { ok:0, tight:1, no:2 };
+  rows.sort((a,b) => (cached.has(b.id)-cached.has(a.id)) || rank[fit(a)]-rank[fit(b)] || score(b)-score(a));
   if (!rows.length){ $("#list").innerHTML = `<div class="empty">No models match.<br>Try “All models” or another category.</div>`; return; }
   $("#list").innerHTML = rows.map(m => {
     const fl = fit(m), gb = (m.vram/1024).toFixed(1), isCur = current === m.id, isC = cached.has(m.id);
@@ -422,8 +424,11 @@ function pickModel(cat, md){
   const best = arr => [...arr].sort((a,b) => score(b)-score(a))[0];
   if (md === "smart") return best(pool);
   if (md === "fast"){
+    // Fastest = the smallest model that is still useful (1B or more). Weaker phone GPUs (Mali) get the very smallest.
     const small = pool.filter(m => m.p >= 1 && m.p <= 2);
-    return best(small.length ? small : pool.filter(m => m.p <= 2).length ? pool.filter(m => m.p <= 2) : pool);
+    const arr = small.length ? small : pool;
+    const weakGpu = /arm|mali|powervr|img/i.test(dev.gpu);
+    return [...arr].sort((a,b) => weakGpu ? (a.p-b.p) || score(b)-score(a) : score(b)-score(a))[0];
   }
   // Balanced: phones up to ~4B, computers up to ~8B, and well under the memory limit.
   const cap = dev.mobile ? 4 : 8.5;
