@@ -171,13 +171,13 @@ select{border:1px solid var(--line);background:var(--panel);color:var(--fg);bord
     <h2>Replies</h2>
     <div class="kv">
       <dt>Creativity</dt><dd><input id="temp" type="range" min="0" max="1.5" step="0.1" value="0.7" aria-label="Creativity"> <span id="tempv">0.7</span></dd>
-      <dt>Max length</dt><dd><select id="maxTok"><option>256</option><option selected>1024</option><option>4096</option></select> tokens</dd>
+      <dt>Max length</dt><dd><select id="maxTok"><option>256</option><option>512</option><option selected>1024</option><option>4096</option></select> tokens</dd>
       <dt>Voice language</dt><dd><select id="voiceLang"><option value="en-IN">English (India)</option><option value="hi-IN">Hindi</option><option value="kn-IN">Kannada</option><option value="ta-IN">Tamil</option><option value="te-IN">Telugu</option><option value="ml-IN">Malayalam</option><option value="mr-IN">Marathi</option><option value="bn-IN">Bengali</option><option value="en-US">English (US)</option></select></dd>
       <dt>Your note to the AI</dt><dd><textarea id="persona" rows="3" style="width:100%" placeholder="e.g. I'm a student in Bengaluru. Keep answers short. Use simple English."></textarea></dd>
     </div>
     <div class="row"><button class="ghost" id="clearChat">Clear chat history</button><button class="ghost" id="unload">Unload model (free memory)</button></div>
     <h2>About</h2>
-    <p class="meta" style="margin:0">Chintu AI v0.2 · AI replies can be wrong; check important facts. <a href="privacy.html" style="color:var(--accent)">Privacy policy</a></p>
+    <p class="meta" style="margin:0">Chintu AI v0.2.5 · AI replies can be wrong; check important facts. <a href="privacy.html" style="color:var(--accent)">Privacy policy</a></p>
   </section>
 </main>
 
@@ -404,7 +404,11 @@ $("#list").onclick = async e => {
 $("#autoBtn").onclick = () => { const m = pickModel("Chat", mode); m ? confirmLoad(m.id) : notice(`<strong>Nothing fits comfortably.</strong> Try a Tiny model under “All models”, or use a computer.`, "bad", [{label:"OK"}]); };
 
 /* ---------- smart model picking ---------- */
-let mode = ls.get("mode", "balanced");
+const IS_PHONE = /Android|iPhone|iPad/i.test(navigator.userAgent);
+// Phones share one graphics chip between the screen and the AI, so default to the light, fast setup.
+let mode = ls.get("mode", IS_PHONE ? "fast" : "balanced");
+if (IS_PHONE && !ls.get("maxTokSet", false)) $("#maxTok").value = "512";
+$("#maxTok").addEventListener("change", () => ls.set("maxTokSet", true));
 function pickModel(cat, md){
   // Only compressed (q3/q4) models with a known size are worth auto-picking.
   const ok = m => fit(m) === "ok" && !/q0/.test(m.id) && m.p > 0;
@@ -486,6 +490,8 @@ async function load(id, quiet){
     try{
       await engine.reload(id);
       current = id; cached.add(id); ls.set("lastModel", id);
+      { const lm = catalog.find(x => x.id === id);
+        if (IS_PHONE && lm && lm.p > 2.5) notice(`<strong>Tip for phones:</strong> ${esc(id.replace(/-MLC$/,""))} is a bigger model, so replies are slower and the phone may lag. For speed, pick <b>Fastest</b> on Home.`, "info", [{label:"OK"}]); }
       status(`ready in ${((performance.now()-t0)/1000).toFixed(0)}s`);
       break;
     }catch(err){
@@ -731,7 +737,8 @@ $("#composer").onsubmit = async e => {
   let sys = T.lang ? `Translate the user's text into ${$("#lang").value}. Output only the translation, in ${$("#lang").value} script.` : T.sys;
   if (persona) sys += `\nAbout the user: ${persona}`;
   let userContent = text, sources = null;
-  const maxChars = Math.max(2000, Math.min(9000, (cur.ctx - 1400) * 3));
+  // Less text to read = much faster first word. Phones read about a third as much at once.
+  const maxChars = IS_PHONE ? Math.min(3000, (cur.ctx - 1400) * 3) : Math.max(2000, Math.min(9000, (cur.ctx - 1400) * 3));
 
   if (att?.kind === "pdf"){
     const parts = topChunks(att.chunks, text, maxChars);
