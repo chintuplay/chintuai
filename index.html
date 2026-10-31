@@ -445,8 +445,24 @@ function confirmLoad(id, after){
 function makeWorker(){
   const src = `import { WebWorkerMLCEngineHandler } from "${engUrl(ENGINE_VER)}";
     const h = new WebWorkerMLCEngineHandler(); self.onmessage = m => h.onmessage(m);`;
-  return new Worker(URL.createObjectURL(new Blob([src],{type:"text/javascript"})), {type:"module"});
+  worker = new Worker(URL.createObjectURL(new Blob([src],{type:"text/javascript"})), {type:"module"});
+  return worker;
 }
+let worker = null;
+const isGpuLost = msg => /disposed|device (was )?lost|GPUDevice|DXGI|context lost|instance reference/i.test(msg);
+/* Start a fresh engine and reload the current model from the phone's storage. */
+async function recoverEngine(){
+  const id = current; if (!id) return false;
+  try{ worker?.terminate(); }catch(e){}
+  engine = null; current = null; busy = false;
+  await load(id, true);
+  return current === id;
+}
+// When the app comes back to the screen, check the engine still works.
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState !== "visible" || !engine || !current || busy || generating) return;
+  try{ await engine.getMessage?.(); }catch(e){ if (isGpuLost(String(e.message || e))) recoverEngine(); }
+});
 async function load(id, quiet){
   if (busy) return;
   busy = true; renderList();
@@ -569,7 +585,7 @@ $("#file").onchange = async e => {
 };
 function renderAttach(){
   $("#attChip").innerHTML = attachment
-    ? `<span class="chip on">${attachment.kind==="image" ? "Photo" : `${esc(attachment.name)} · ${attachment.pages} pages`} <span aria-hidden="true">×</span></span>` : "";
+    ? `<span class="chip on">${attachment.kind==="image" ? "Photo" : `${esc(attachment.name)} · ${attachment.pages} page${attachment.pages===1?"":"s"}`} <span aria-hidden="true">×</span></span>` : "";
   const c = $("#attChip .chip"); if (c) c.onclick = () => { attachment = null; renderAttach(); };
 }
 async function shrinkImage(file){
@@ -735,19 +751,34 @@ $("#composer").onsubmit = async e => {
 
   const out = addBubble("ai", "…");
   generating = true; $("#send").textContent = "Stop";
-  const t0 = performance.now(); let first = 0, reply = "", usage;
-  try{
-    status("thinking…");
-    const stream = await engine.chat.completions.create({ messages:msgs, stream:true, stream_options:{include_usage:true},
-      temperature:+$("#temp").value, max_tokens:+$("#maxTok").value });
-    for await (const c of stream){
-      const d = c.choices[0]?.delta?.content || "";
-      if (d && !first) first = performance.now();
-      reply += d; out.lastChild.textContent = reply || "…";
-      if (c.usage) usage = c.usage;
-      scrollEnd();
+  let t0 = performance.now(), first = 0, reply = "", usage;
+  for (let attempt = 1; attempt <= 2; attempt++){
+    try{
+      status("thinking…");
+      const stream = await engine.chat.completions.create({ messages:msgs, stream:true, stream_options:{include_usage:true},
+        temperature:+$("#temp").value, max_tokens:+$("#maxTok").value });
+      for await (const c of stream){
+        const d = c.choices[0]?.delta?.content || "";
+        if (d && !first) first = performance.now();
+        reply += d; out.lastChild.textContent = reply || "…";
+        if (c.usage) usage = c.usage;
+        scrollEnd();
+      }
+      break;
+    }catch(err){
+      const msg = String(err.message || err);
+      // Android drops the graphics chip when the app goes to the background (calls, screen off).
+      // The model is still saved, so reload it from the phone and ask again.
+      if (attempt === 1 && isGpuLost(msg) && !reply){
+        out.lastChild.textContent = "Waking the AI back up (a few seconds, no download)…";
+        const ok = await recoverEngine();
+        if (ok){ t0 = performance.now(); out.lastChild.textContent = "…"; continue; }
+      }
+      reply += isGpuLost(msg) ? "\n[The AI was paused by your phone. Tap Send again.]" : `\n[stopped: ${msg}]`;
+      out.lastChild.textContent = reply;
+      break;
     }
-  }catch(err){ reply += `\n[stopped: ${err.message || err}]`; out.lastChild.textContent = reply; }
+  }
   const tps = usage?.extra?.decode_tokens_per_s;
   const meta = `${tps ? tps.toFixed(1) + " tokens/s" : ""}${first ? " · started in " + ((first - t0)/1000).toFixed(1) + "s" : ""}`.replace(/^ · /, "");
   history.push({role:"assistant", content:reply, meta, sources});
