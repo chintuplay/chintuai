@@ -298,9 +298,9 @@ async function checkLatest(manual){
     const r = await fetch("https://data.jsdelivr.com/v1/packages/npm/@mlc-ai/web-llm/resolved?specifier=latest");
     LATEST = (await r.json()).version;
     renderEngine();
-    if (LATEST && newer(LATEST, ENGINE_VER))
+    if (LATEST && newer(LATEST, ENGINE_VER) && (manual || ls.get("skipVer", "") !== LATEST))
       notice(`<strong>AI engine update: ${esc(LATEST)}.</strong> Newer engines usually add new models and speed-ups. Your downloaded models stay.`, "info",
-        [{label:"Update now", go(){ ls.set("engineVer", LATEST); location.reload(); }}, {label:"Later"}]);
+        [{label:"Update now", go(){ ls.set("engineVer", LATEST); location.reload(); }}, {label:"Later", go(){ ls.set("skipVer", LATEST); }}]);
     else if (manual) notice(`<strong>You're up to date.</strong> Engine ${esc(ENGINE_VER)}.`, "info");
   }catch(e){ if (manual) notice(`<strong>Couldn't check for updates.</strong> Try again later.`); }
 }
@@ -453,21 +453,45 @@ async function load(id, quiet){
   if (!quiet) tab("chat");
   $("#loadbox").hidden = false; $("#loadlabel").textContent = "Preparing";
   const t0 = performance.now();
-  try{
-    const progress = r => {
-      const p = Math.round(r.progress*100);
-      $("#loadbar").style.width = p+"%"; $("#loadpct").textContent = p+"%";
-      $("#loadlabel").textContent = /fetch|download/i.test(r.text) ? "Downloading" : "Loading into memory";
-      status(r.text.slice(0,60));
-    };
-    if (!engine) engine = await webllm.CreateWebWorkerMLCEngine(makeWorker(), id, { initProgressCallback: progress });
-    else { engine.setInitProgressCallback(progress); await engine.reload(id); }
-    current = id; cached.add(id); ls.set("lastModel", id);
-    status(`ready in ${((performance.now()-t0)/1000).toFixed(0)}s`);
-  }catch(err){
-    status("load failed");
-    notice(`<strong>Couldn't load this model.</strong> ${esc(err.message||err)}. Try a smaller one, close other apps, or restart Chrome.`, "bad", [{label:"OK"}]);
+  // Keep the screen on during the download so the phone doesn't sleep and cut it off.
+  let wake = null; try{ wake = await navigator.wakeLock?.request("screen"); }catch(e){}
+  const progress = r => {
+    const p = Math.round(r.progress*100);
+    $("#loadbar").style.width = p+"%"; $("#loadpct").textContent = p+"%";
+    const piece = r.text.match(/\[(\d+)\/(\d+)\]/);
+    $("#loadlabel").textContent = /fetch|download/i.test(r.text) ? `Downloading${piece ? ` piece ${piece[1]} of ${piece[2]}` : ""}` : "Loading into memory";
+    status(r.text.slice(0,60));
+  };
+  if (!engine) engine = new webllm.WebWorkerMLCEngine(makeWorker());
+  engine.setInitProgressCallback(progress);
+  // Network drops are common on phones. Saved pieces stay, so each retry continues where it stopped.
+  const MAX = 6;
+  for (let attempt = 1; attempt <= MAX; attempt++){
+    try{
+      await engine.reload(id);
+      current = id; cached.add(id); ls.set("lastModel", id);
+      status(`ready in ${((performance.now()-t0)/1000).toFixed(0)}s`);
+      break;
+    }catch(err){
+      const msg = String(err.message || err);
+      const isNet = /network|fetch|cache|load failed|connection|timeout|Failed to execute/i.test(msg);
+      if (isNet && attempt < MAX){
+        $("#loadlabel").textContent = `Connection dropped. Resuming (try ${attempt+1} of ${MAX})…`;
+        await new Promise(r => setTimeout(r, Math.min(15000, 2000 * attempt)));
+        if (!navigator.onLine) await new Promise(r => addEventListener("online", r, { once:true }));
+        continue;
+      }
+      status("load failed");
+      const hint = isNet
+        ? "The internet kept dropping. Move closer to Wi-Fi and tap Download again; it continues where it stopped."
+        : /memory|OOM|device lost|allocation/i.test(msg)
+          ? "Not enough free memory. Close other apps or pick a smaller model."
+          : "Try a smaller model, or restart Chrome.";
+      notice(`<strong>Couldn't load this model.</strong> ${hint}<br><span class="meta">${esc(msg.slice(0,160))}</span>`, "bad", [{label:"Try again", go(){ load(id); }}, {label:"OK"}]);
+      break;
+    }
   }
+  try{ await wake?.release(); }catch(e){}
   $("#loadbox").hidden = true; busy = false; renderList(); renderCurrent();
 }
 function renderCurrent(){
